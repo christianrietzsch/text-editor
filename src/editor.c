@@ -1,51 +1,35 @@
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <termios.h>
+#include "editor.h"
 
-#define EDITOR_VERSION "0.0.1"
-#define CTRL_KEY(k) ((k) & 0x1f)
-struct editorConfig {
-  int cx, cy;
-  int screenrows;
-  int screencols;
-  struct termios orig_termios;
-};
-
-struct editorConfig E;
-  struct abuf {
-  char *b;
-  int len;
-};
-#define ABUF_INIT {NULL, 0}
-void abAppend(struct abuf *ab, const char *s, int len) {
-  char *new = realloc(ab->b, ab->len + len);
-
+void abAppend(struct buffer *buffer, const char *string, int len) {
+  //appends a string to the buffer
+  char *new = realloc(buffer->b, buffer->len + len);
   if(new == NULL) return;
-  memcpy(&new[ab->len], s, len);
-  ab->b = new;
-  ab->len += len;
+  memcpy(&new[buffer->len], string, len);
+  buffer->b = new;
+  buffer->len += len;
 }
-void abFree(struct abuf *ab) {
-  free(ab->b);
+
+void abFree(struct buffer *buffer) {
+  //free the memory of the buffer
+  free(buffer->b);
 }
-void die(const char *s) {
+
+void die(const char *message) {
+  //clear the screen and display an error message
   write(STDOUT_FILENO, "\x1b[2J",4);
   write(STDOUT_FILENO, "\x1b[H", 3);
-  perror(s);
+  perror(message);
   exit(1);
 }
 
-void disableRawMode() 
-{
+void disableRawMode() {
+  //disable Raw(Modal)-Mode
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
     die("tcsetattr");
 }
-void enableRawMode()
-{
+
+void enableRawMode() {
+  //enable Raw(Modal)-Mode
   if(tcgetattr(STDIN_FILENO, &E.orig_termios) == -1) die("tcgetattr");
   atexit(disableRawMode);
   struct termios raw = E.orig_termios;
@@ -57,7 +41,9 @@ void enableRawMode()
   raw.c_cc[VTIME] = 1;
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw)) die("tcsetattr");
 }
+
 char editorReadKey() {
+  //reads a keypress and returns it as a character
   int nread;
   char c;
   while((nread = read(STDIN_FILENO, &c, 1)) != 1) {
@@ -65,7 +51,9 @@ char editorReadKey() {
   }
   return c;
 }
+
 int getWindowSize(int *rows, int *cols) {
+  //saves the size of the window in rows and cols
   struct winsize ws;
 
   if(ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
@@ -76,7 +64,9 @@ int getWindowSize(int *rows, int *cols) {
     return 0;
   }
 }
-void editorDrawRows(struct abuf *ab) {
+
+void editorDrawRows(struct buffer *ab) {
+  //draws the rows with "~" at the beginning
   int y;
   for(y = 0; y < E.screenrows; y++) {
     if(y == E.screenrows / 3) {
@@ -99,8 +89,10 @@ void editorDrawRows(struct abuf *ab) {
     }
   }
 }
+
 void editorRefreshScreen() {
-  struct abuf ab = ABUF_INIT;
+  //clears and writes the buffer to the screen
+  struct buffer ab = BUFFER_INIT;
   abAppend(&ab, "\x1b[?25l", 6);
   abAppend(&ab, "\x1b[H", 3);
 
@@ -113,7 +105,9 @@ void editorRefreshScreen() {
   write(STDOUT_FILENO, ab.b, ab.len);
   abFree(&ab);
 }
+
 void editorMoveCursor(char key) {
+  //moves the cursor up/down and left/right based on a keypress
   switch(key) {
     case 'h':
     E.cx--;
@@ -129,7 +123,9 @@ void editorMoveCursor(char key) {
     break;
   }
 }
+
 void editorProcessKeypress() {
+  //maps the pressed key to an action
   char c = editorReadKey();
 
   switch(c) {
@@ -147,19 +143,20 @@ void editorProcessKeypress() {
     break;
   }
 }
+
 void initEditor() {
+  //initial state of the editor
   E.cx = 0;
   E.cy = 0;
-  
   if(getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
-int main(void) 
-{
-enableRawMode();
-initEditor();
-while(1) {
-  editorRefreshScreen();
-  editorProcessKeypress();
-}
-return 0;
+
+int main(void) {
+  enableRawMode();
+  initEditor();
+  while(1) {
+    editorRefreshScreen();
+    editorProcessKeypress();
+  }
+  return 0;
 }
