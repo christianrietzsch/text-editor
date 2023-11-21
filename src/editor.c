@@ -1,20 +1,20 @@
-#include "editor.h"
+#include "../include/editor.h"
 
-void abAppend(struct buffer *buffer, const char *string, int len) {
+void abAppend(struct buffer* buffer, const char* string, int len) {
   //appends a string to the buffer
-  char *new = realloc(buffer->b, buffer->len + len);
+  char* new = realloc(buffer->b, buffer->len + len);
   if(new == NULL) return;
   memcpy(&new[buffer->len], string, len);
   buffer->b = new;
   buffer->len += len;
 }
 
-void abFree(struct buffer *buffer) {
+void abFree(struct buffer* buffer) {
   //free the memory of the buffer
   free(buffer->b);
 }
 
-void die(const char *message) {
+void die(const char* message) {
   //clear the screen and display an error message
   write(STDOUT_FILENO, "\x1b[2J",4);
   write(STDOUT_FILENO, "\x1b[H", 3);
@@ -52,7 +52,7 @@ char editorReadKey() {
   return c;
 }
 
-int getWindowSize(int *rows, int *cols) {
+int getWindowSize(int* rows, int* cols) {
   //saves the size of the window in rows and cols
   struct winsize ws;
 
@@ -64,24 +64,28 @@ int getWindowSize(int *rows, int *cols) {
     return 0;
   }
 }
+char* getRelativeCursorRowPosition(int current_line, int line) {
+  return "12345";
+}
 
-void editorDrawRows(struct buffer *ab) {
+void editorDrawRows(struct buffer* ab, int current_line) {
   //draws the rows with "~" at the beginning
   int y;
   for(y = 0; y < E.screenrows; y++) {
+    char* row_inf = getRelativeCursorRowPosition(current_line, y);
     if(y == E.screenrows / 3) {
       char welcome[80];
       int welcomelen = snprintf(welcome, sizeof(welcome), "Editor --version %s", EDITOR_VERSION);
       if(welcomelen > E.screencols) welcomelen = E.screencols;
       int padding = (E.screencols - welcomelen) / 2;
       if(padding) {
-        abAppend(ab, "~", 1);
+        abAppend(ab, row_inf, BARRIER_LENGTH-1);
         padding--;
       }
       while(padding--) abAppend(ab, " ", 1);
       abAppend(ab, welcome, welcomelen);
     } else {
-      abAppend(ab, "~", 1);
+      abAppend(ab, row_inf, BARRIER_LENGTH-1);
     }
     abAppend(ab, "\x1b[K", 3);
     if(y < E.screenrows -1) {
@@ -96,7 +100,7 @@ void editorRefreshScreen() {
   abAppend(&ab, "\x1b[?25l", 6);
   abAppend(&ab, "\x1b[H", 3);
 
-  editorDrawRows(&ab);
+  editorDrawRows(&ab, 0);
   char buf[32];
   snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy +1, E.cx +1);
   abAppend(&ab, buf, strlen(buf));
@@ -146,12 +150,12 @@ void editorProcessKeypress() {
 
 void initEditor() {
   //initial state of the editor
-  E.cx = 0;
+  E.cx = BARRIER_LENGTH;
   E.cy = 0;
   if(getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
 
-int main(void) {
+int main() {
   enableRawMode();
   initEditor();
   while(1) {

@@ -9,6 +9,7 @@
 
   #define EDITOR_VERSION "0.0.1"
 
+  #define BARRIER_LENGTH 4
   #define CTRL_KEY(k) ((k) & 0x1f)
   #define BUFFER_INIT {NULL, 0}
 
